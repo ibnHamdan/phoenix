@@ -1,48 +1,28 @@
-#!/usr/bin/env node
-const rollup = require("rollup")
-const path = require("path")
-const resolve = require("@rollup/plugin-node-resolve").default
-const babel = require("@rollup/plugin-babel").default
+module.exports = {
+  stories: ["../packages/**/*.stories.js"],
+  addons: ["@storybook/addon-actions", "@storybook/addon-links"],
+  webpackFinal: async (config) => {
+    // remove default css rule from storybook
+    config.module.rules = config.module.rules.filter((f) => f.test.toString() !== "/\\.css$/")
 
-const currentWorkingPath = process.cwd()
-const { main, name } = require(path.join(currentWorkingPath, "package.json"))
+    // push our custom easy one
+    config.module.rules.push({
+      test: /\.css$/,
+      use: [
+        "style-loader",
+        {
+          loader: "css-loader",
+          options: {
+            // Key config
+            modules: true,
+          },
+        },
+      ],
+    })
+    // This is where we change the order of resolution of main fields
+    config.resolve.mainFields = ["src", "module", "main"]
 
-const inputPath = path.join(currentWorkingPath, main)
-
-// Little workaround to get package name without scope
-const fileName = name.replace("@idev/", "")
-
-// see below for details on the options
-const inputOptions = {
-  input: inputPath,
-  external: ["react"],
-  plugins: [
-    resolve(),
-    babel({
-      presets: ["@babel/preset-env", "@babel/preset-react"],
-      babelHelpers: "bundled",
-    }),
-  ],
-}
-
-const outputOptions = [
-  {
-    file: `dist/${fileName}.cjs.js`,
-    format: "cjs",
+    // Return the altered config
+    return config
   },
-  {
-    file: `dist/${fileName}.esm.js`,
-    format: "esm",
-  },
-]
-
-async function build() {
-  // create bundle
-  const bundle = await rollup.rollup(inputOptions)
-  // loop through the options and write individual bundles
-  outputOptions.forEach(async (options) => {
-    await bundle.write(options)
-  })
 }
-
-build()
